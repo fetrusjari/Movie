@@ -1,8 +1,15 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, View, StatusBar, StyleSheet } from 'react-native';
 import type { MovieListProps } from '../types/app';
 import MovieList from 'C:/Windows/System32/Movie/src/components/movies/MovieList';
+import { API_ACCESS_TOKEN } from '@env';
 
+interface NewsItem {
+  id: number;
+  title: string;
+  overview: string;
+  // tambahkan properti lain sesuai respons API
+}
 
 const movieLists: MovieListProps[] = [
   {
@@ -25,11 +32,7 @@ const movieLists: MovieListProps[] = [
     path: 'movie/popular?language=en-US&page=1',
     coverType: 'poster',
   },
-  {
-    title: 'Top News',
-    path: 'movie/popular?language=en-US&page=1',
-    coverType: 'poster',
-  },
+
 ]
 
 const Home = (): JSX.Element => {
@@ -50,7 +53,8 @@ const Home = (): JSX.Element => {
     
   )
   
-}
+};
+
 
 const styles = StyleSheet.create({
   container: {
@@ -59,6 +63,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     rowGap: 16,
   },
+  newsContainer: {
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    margin: 10,
+  },
+  newsTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  newsItem: {
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  
 })
 
 export default Home

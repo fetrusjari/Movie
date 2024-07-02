@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Text, View, Image, ScrollView, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
-import { Feather, FontAwesome, AntDesign } from '@expo/vector-icons'; // Tambahkan AntDesign untuk ikon refresh
+import { Feather, FontAwesome, AntDesign } from '@expo/vector-icons';
 import { API_ACCESS_TOKEN } from '@env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Rekomendasi from '../components/movies/Rekomendasi';
+import { WebView } from 'react-native-webview';
 
 interface Genre {
   id: number;
@@ -23,15 +24,25 @@ interface Movie {
   runtime: number;
 }
 
+interface Trailer {
+  id: string;
+  key: string;
+  name: string;
+  site: string;
+  type: string;
+}
+
 const MovieDetail = ({ route }: any): JSX.Element => {
   const { id } = route.params;
   const [movieDetails, setMovieDetails] = useState<Movie | null>(null);
+  const [trailers, setTrailers] = useState<Trailer[]>([]);
   const [isFavorite, setIsFavorite] = useState(false);
 
   useEffect(() => {
     fetchMovieDetails();
-    checkIsFavorite(id); // Panggil checkIsFavorite saat komponen dimuat
-  }, [id]); // Tambahkan refreshFlag sebagai dependensi
+    fetchMovieTrailers();
+    checkIsFavorite(id);
+  }, [id]);
 
   const fetchMovieDetails = async () => {
     try {
@@ -47,6 +58,26 @@ const MovieDetail = ({ route }: any): JSX.Element => {
       }
       const movie = await response.json();
       setMovieDetails(movie);
+    } catch (error) {
+      console.error('Fetch Error:', error);
+    }
+  };
+
+  const fetchMovieTrailers = async () => {
+    try {
+      const response = await fetch(`https://api.themoviedb.org/3/movie/${id}/videos`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${API_ACCESS_TOKEN}`,
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      const data = await response.json();
+      const youtubeTrailers = data.results.filter((video: Trailer) => video.site === 'YouTube' && video.type === 'Trailer');
+      setTrailers(youtubeTrailers);
     } catch (error) {
       console.error('Fetch Error:', error);
     }
@@ -72,7 +103,6 @@ const MovieDetail = ({ route }: any): JSX.Element => {
       const initialData: string | null = await AsyncStorage.getItem('@FavoriteList');
       let favMovieList: Movie[] = initialData ? JSON.parse(initialData) : [];
   
-      // Cek apakah film sudah ada dalam daftar favorit
       const movieExists = favMovieList.some(favMovie => favMovie.id === movie.id);
   
       if (!movieExists) {
@@ -111,38 +141,44 @@ const MovieDetail = ({ route }: any): JSX.Element => {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Image
-        style={styles.poster}
-        source={{ uri: `https://image.tmdb.org/t/p/w500${movieDetails.poster_path}` }}
-        resizeMode="contain"
-      />
+      {trailers.length > 0 && (
+        <View style={styles.trailerContainer}>
+          <WebView
+            style={styles.trailer}
+            source={{ uri: `https://www.youtube.com/embed/${trailers[0].key}` }}
+          />
+        </View>
+        
+      )}
+      
       <Text style={[styles.title, styles.textCenter]}>{movieDetails.title}</Text>
+      
       <View style={styles.container1}>
+      <TouchableOpacity style={styles.favoriteIcon} onPress={isFavorite ? () => removeFavorite(id) : () => addFavorite(movieDetails)}>
+        <FontAwesome
+          name={isFavorite ? 'heart' : 'heart-o'}
+          size={30}
+          color={isFavorite ? 'red' : 'black'}
+        />
+      </TouchableOpacity>
         <Image
           style={styles.poster1}
           source={{ uri: `https://image.tmdb.org/t/p/w500${movieDetails.poster_path}` }}
           resizeMode="contain"
         />
-        
         <View style={styles.detailsContainer}>
+          
           <Text style={styles.detail}><Text style={styles.label}>Genre: </Text>{movieDetails.genres.map(genre => genre.name).join(', ')}</Text>
           <Text style={styles.detail}><Text style={styles.label}>Durasi: </Text>{movieDetails.runtime} menit</Text>
           <Text style={styles.detail}><Text style={styles.label}>Rilis: </Text>{movieDetails.release_date}</Text>
           <Text style={styles.detail}><Text style={styles.label}>Rating: </Text>{movieDetails.vote_average.toFixed(1)}</Text>
         </View>
       </View>
-      <View style={styles.container2} >
+      <View style={styles.container2}>
         <Text style={styles.overview}><Text style={styles.label}>Sinopsis: </Text>{movieDetails.overview}</Text>
         <Rekomendasi movieId={id} />
       </View>
-
-      <TouchableOpacity style={styles.favoriteIcon} onPress={isFavorite ? () => removeFavorite(id) : () => addFavorite(movieDetails)}>
-        <FontAwesome
-          name={isFavorite ? 'heart' : 'heart-o'}
-          size={24}
-          color={isFavorite ? 'red' : 'black'}
-        />
-      </TouchableOpacity>
+      
     </ScrollView>
   );
 };
@@ -164,6 +200,16 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: 'white',
   },
+  trailerContainer: {
+    marginBottom: 26,
+    alignItems: 'center',
+    width: windowWidth * 0.75, 
+    height: (windowWidth * 0.55),
+  },
+  trailer: {
+    width: windowWidth - 32,
+    height: 150, 
+  },
   poster: {
     width: windowWidth - 32,
     height: 400,
@@ -174,20 +220,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
-  posterSmall: {
-    width: windowWidth * 0.3,
-    height: windowWidth * 0.45,
-    borderRadius: 8,
-  },
+
   detailsContainer: {
     flex: 1,
     paddingLeft: 16,
-
-    
     borderRadius: 8,
     padding: 1,
-   
-  
     marginLeft: 16,
   },
   detailsContainer1: {
@@ -195,7 +233,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 16,
     lineHeight: 24,
-
   },
   title: {
     fontSize: 30,
@@ -210,9 +247,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   favoriteIcon: {
+    marginTop:150,
     position: 'absolute',
-    top: 16,
-    right: 16,
+    top: 14,
+    right: 25,
     zIndex: 1,
   },
   container1: {
